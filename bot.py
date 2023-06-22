@@ -1,6 +1,7 @@
 import pyautogui
 import time
 import pytesseract
+import math
 
 time.sleep(2)
 
@@ -13,7 +14,7 @@ def rectify_str(text):
         if src_1 != None:
             text = '1'
     return text
-def read_from_screen(need):
+def read_from_screen(need: str):
     angle_box = [941, 0, 982, 23]
     coord_box = [1025, 812, 1131, 833]
     if need == 'angle':
@@ -45,6 +46,20 @@ def remake_vector(vector):
             i = i + 14
         vector2.append(coords)
     return vector2
+def calculate_angle(x1, y1, x2, y2):
+    dx = x2 - x1
+    dy = y2 - y1
+
+    angle = math.degrees(math.atan2(dy, dx))
+    angle = (angle + 360 + 90) % 360
+
+    return angle
+def calculate_distance(a,b):
+    distance = math.sqrt((b[0] - a[0])**2 + (b[1] - a[1])**2)
+    return distance
+def pathfinding(nodes,location,destination):
+    for el in nodes:
+        el[0]
 
 vector = read_folder('coords_torghast.txt')
 vector = remake_vector(vector)
