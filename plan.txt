@@ -1,7 +1,1 @@
-map awareness 
-    my coord(1018 805 | 1137 835)
-traveling
-fighting
-    everything
-    if enemy
-        every 2 sec press 5
+
