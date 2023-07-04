@@ -1,40 +1,35 @@
 import pyautogui
 import time
-import pytesseract
 import math
+import keyboard
+import random
+import cv2
+from modules import pathfinder as pf
+from modules import image_to_string_module as tess
 
-time.sleep(2)
-
-def rectify_str(text):
-    text = str.replace(text,'A','4')
-    text = str.replace(text,'T','7')
-    if text == '' or text == None:
-        #print(1)
-        src_1 = pyautogui.locateOnScreen('1_angle.png')
-        if src_1 != None:
-            text = '1'
-    return text
 def read_from_screen(need: str):
-    angle_box = [941, 0, 982, 23]
-    coord_box = [1025, 812, 1131, 833]
-    if need == 'angle':
-        needed_box = angle_box
+    '''
+    'angle' or 'coord'
+    '''
+    coord_box = [1022, 811, 1135-1022, 834-811]
+    angle_box = [941, 0, 982-941, 23]
+    box = angle_box
     if need == 'coord':
-        needed_box = coord_box
-    sc = pyautogui.screenshot()
-    photo_box = sc.crop(needed_box)
+        box = coord_box
     if need == 'angle':
-        photo_box.save('cropped.png')
-    text = pytesseract.image_to_string(photo_box)
-    text = rectify_str(text)
-    try :
-        text = int(text)
-    except :
-        pass
+        box = angle_box
+        
+    sc = pyautogui.screenshot(region = box)
+    sc.save('photo3.png')    
+    photo_to_check = cv2.imread('photo3.png',cv2.COLOR_BGR2GRAY)
+        
+    text = tess.image_to_string(photo_to_check)
+    print(text)
     return text
 def read_folder(coord_file_name):
     with open(coord_file_name, "r") as file:
         vector = [line.strip() for line in file]
+    vector = remake_vector(vector)
     return vector
 def remake_vector(vector):
     vector2 = []
@@ -54,14 +49,138 @@ def calculate_angle(x1, y1, x2, y2):
     angle = (angle + 360 + 90) % 360
 
     return angle
-def calculate_distance(a,b):
-    distance = math.sqrt((b[0] - a[0])**2 + (b[1] - a[1])**2)
-    return distance
-def pathfinding(nodes,location,destination):
-    for el in nodes:
-        el[0]
+def nice_print(vector:list):
+    for el in vector:
+        print(el)
+def enemy(need_to_check:bool = False):
+    if need_to_check == False:
+        return False
+    enemy = pyautogui.locateOnScreen('check_health_bar.png',region=[1188, 662, 1443-1188, 747-662],confidence=0.9)
+    if enemy:
+        return True
+    return False
+def calculate_rotation_direction(current_angle, target_angle):
+    if current_angle < target_angle:
+        dif = target_angle - current_angle
+        if dif <= 180:
+            return "d",dif #right
+        else:
+            return "a",dif #left
+    else:
+        dif = current_angle - target_angle
+        if dif <= 180:
+            return "a",dif #left
+        else:
+            return "d",dif #right
+def check_space():
+    lc = []
+    for i in range(1,5):
+        ph = pyautogui.locateOnScreen('floors/floor_' + str(i) + '.png',region=[1475, 393, 1767, 477],confidence=0.9)
+        lc.append(ph)
+    for el in lc:
+        if el != None:
+            return lc.index(el)+1
+    return 0
+def check_map(space):
+    if space == 0:
+        return 0
+    mp = []
+def set_destination(space,mp):
+    
+    if space == 0 and mp == 0:
+        destination = [50.0,27.0] 
+        
+    if space == 0:
+        need_to_check = False
+    else:
+        need_to_check = True
+    
+    return destination,need_to_check
+def menu_interaction(space,mp,destination):
+    if space == 0 and mp == 0:
+        lc = pyautogui.locateOnScreen('left_arrow.png',grayscale=True,region = [1121, 658, 1164-1121, 699-658])
+        pyautogui.moveTo(pyautogui.center(lc))
+        time.sleep(0.1)
+        pyautogui.click()
+        time.sleep(0.2)
+        
+        lc = pyautogui.locateOnScreen('floor_1_icon.png',grayscale=True)
+        pyautogui.moveTo(pyautogui.center(lc))
+        time.sleep(0.1)
+        pyautogui.click()
+        time.sleep(0.2)
+        
+        lc = pyautogui.locateOnScreen('climb_button.png',grayscale=True)
+        pyautogui.moveTo(pyautogui.center(lc))
+        time.sleep(0.1)
+        pyautogui.click()
+        time.sleep(5)
+        
+        lc = pyautogui.locateOnScreen('accept_button.png',grayscale=True)
+        pyautogui.moveTo(pyautogui.center(lc))
+        time.sleep(0.1)
+        pyautogui.click()
+        time.sleep(0.2)
+time.sleep(2)
 
-vector = read_folder('coords_torghast.txt')
-vector = remake_vector(vector)
-for el in vector:
-    print(el)
+while keyboard.is_pressed('`') == False:
+    #awareness
+    space = check_space()
+    mp = check_map(space=space)
+    
+    #locations
+    nodes = read_folder('coords_torghast.txt')
+    location = read_from_screen('coord')
+    
+    #set goals
+    destination,need_to_check  = set_destination(space,mp)
+    path = pf.pathfinding(nodes=nodes,location=location,destination=destination)
+    step = 0
+    
+    #movement
+    while enemy(need_to_check) == False and keyboard.is_pressed('`') == False:
+        print('\n')
+        angle = read_from_screen('angle')
+        target_angle = calculate_angle(location[0],location[1],path[step][0],path[step][1],)
+        print('target_angle: '+str(target_angle))
+        print('path[step]: ' + str(path[step]))
+        
+        direction,dif_angle = calculate_rotation_direction(angle,target_angle)
+        #if angle dif > 90 stop w
+        if dif_angle > 90:
+            keyboard.release('w')
+        
+        #if angle dif > 20 start rotating
+        #if angle dif < 20 stop rotating
+        if dif_angle > 20:
+            keyboard.press(direction)
+            time.sleep(dif_angle/180)
+            keyboard.release(direction)
+        
+        #check location
+        location = read_from_screen('coord')
+        
+        #if point reach the point go to next point
+        if pf.calculate_distance(location,path[step]) < 2:
+            if(step < len(path)-1):
+                step=step+1
+        else:
+            keyboard.press('w')
+        
+        #if destination reach interact
+        if pf.calculate_distance(location,destination) < 0.4:
+            keyboard.release('w')
+            time.sleep(2)
+            menu_interaction(space,mp,destination)
+            break
+        #break
+        
+    keyboard.release('w')
+    
+    #fighting
+    while enemy(need_to_check) == True and keyboard.is_pressed('`') == False:
+        #verifica de vaza, daca e, click 4, daca nu, dai tare
+        pass
+        
+    
+
